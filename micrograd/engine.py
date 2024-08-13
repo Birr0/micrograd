@@ -27,20 +27,21 @@ class Value:
         return out
     
     def __mul__(self, other):
-        other = other if isinstance(other, Value) else Value(other) # Ensure other is a value object 
+        other = other if isinstance(other, Value) else Value(other) # Ensure other is a value object
+        
         out = Value(self.data * other.data, (self, other), '*') # Produces a new node formed from data and other (i.e. children)
-
+                    
         def _backward():
-            self.grad +=  other.grad * out.grad
+            self.grad +=  other.data * out.grad
             other.grad += self.data * out.grad
-        out._backward = _backward() 
+        out._backward = _backward
 
         return out
     
     def __pow__(self, other):
 
-        assert isinstance(other, (int, float), "only supporting int/float powers for now")
-        out = Value(self.data**other.data, (self,), f'**{other}')
+        assert isinstance(other, (int, float)), "only supporting int/float powers for now"
+        out = Value(self.data**other, (self,), f'**{other}')
 
         def _backward():
             self.grad += (other * self.data **(other - 1)) * out.grad
@@ -49,14 +50,11 @@ class Value:
         return out 
     
     def relu(self):
-        if self.data < 0:
-            out = Value(0, (self), "ReLU")
-        else:
-            out = self
-
+        out = Value(0 if self.data < 0 else self.data, (self, ), "ReLU")
+        
         def _backward():
-            self.grad += out.grad 
-        out._backward = _backward()
+            self.grad += (out.data > 0) * out.grad
+        out._backward = _backward
 
         return out
 
@@ -70,7 +68,7 @@ class Value:
         def build_topo(v):
             if v not in visited:
                 visited.add(v)
-                for child in v._pred:
+                for child in v._prev:
                     build_topo(child)
                 topo.append(v)
 
@@ -82,27 +80,26 @@ class Value:
         for v in reversed(topo):
             v._backward()
 
-        def __neg__(self):
-            return self*-1
-        
-        def __radd__(self, other): # add other and self Value objects
-            return self + other
-
-        def __sub__(self, other): # self - other
-            return self + (-other)
-        
-        def __rsub__(self, other): # other - self 
-            return other + (-self)
-        
-        def __rmul__(self, other): # other * self 
-            return other * self 
-        
-        def __truediv__(self, other):
-            return self * other**-1 
-        
-        def __rtruediv(self, other): 
-            return other * self**-1 
-        
-        def __repr__(self): # representation string 
-            return f"Value(data={self.data}, grad={self.grad})" 
+    def __neg__(self):
+        return self * -1
     
+    def __radd__(self, other): # add other and self Value objects
+        return self + other
+
+    def __sub__(self, other): # self - other
+        return self + (-other)
+    
+    def __rsub__(self, other): # other - self 
+        return other + (-self)
+    
+    def __rmul__(self, other): # other * self
+        return self * other
+    
+    def __truediv__(self, other):
+        return self * other**-1 
+    
+    def __rtruediv__(self, other): 
+        return other * self**-1 
+    
+    def __repr__(self): # representation string 
+        return f"Value(data={self.data}, grad={self.grad})" 
